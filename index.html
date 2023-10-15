@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Conflict Mapping - South Sudan</title>
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/css/ol.css" type="text/css">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="../css/styles.css">
+    <!-- OpenLayers and jQuery JS -->
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/build/ol.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Style the search container */
+        #search-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+
+        /* Style the input field */
+        #placeInput {
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        /* Style the search button */
+        #searchButton {
+            padding: 10px 20px;
+            background-color: #0078d4;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* Style the zoom controls */
+        .ol-zoom {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+
+        /* Style the conflict details popup */
+        #conflict-popup {
+            position: absolute;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 10px;
+            z-index: 1000;
+            display: none;
+        }
+
+        /* Add media query for smaller screens (e.g., mobile devices) */
+        @media screen and (max-width: 768px) {
+            #placeInput {
+                width: 70%;
+                max-width: none;
+                margin-right: 0;
+            }
+        }
+
+        /* Style the map container to fill the entire page */
+        #map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            height: 100%;
+            background-color: #f0f0f0;
+        }
+
+        /* Watermark style */
+        #watermark {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.5); /* Adjust color and opacity as needed */
+        }
+    </style>
+</head>
+<body>
+<!-- Search Input and Button -->
+<div id="search-container">
+    <input type="text" id="placeInput" placeholder="Type a place name...">
+    <button id="searchButton">Find Alerts</button>
+</div>
+
+<!-- Map Container -->
+<div id="map-container"></div>
+
+<!-- Conflict Details Popup -->
+<div id="conflict-popup">
+    <h3 id="area-name"></h3>
+    <div id="conflict-details">
+        <!-- Content will be updated dynamically using JavaScript -->
+    </div>
+</div>
+
+<!-- Zoom Controls -->
+<div class="ol-zoom"></div>
+
+<!-- Watermark -->
+<div id="watermark">Francis Amizuku</div>
+
+<script>
+    var map = new ol.Map({
+        target: 'map-container',
+        layers: [
+            new ol.layer.Tile({
+                source: new ol.source.OSM(),
+                title: 'Map',
+                type: 'base'
+            })
+        ],
+        view: new ol.View({
+            center: ol.proj.fromLonLat([31.5, 7.5]), // Centered on South Sudan
+            zoom: 7
+        })
+    });
+
+    var conflictPopup = new ol.Overlay({
+        element: document.getElementById('conflict-popup'),
+        positioning: 'bottom-center',
+        stopEvent: false,
+        offset: [0, -10]
+    });
+    map.addOverlay(conflictPopup);
+
+    map.on('pointermove', function (event) {
+        var coordinates = event.coordinate;
+        var lonLat = ol.proj.toLonLat(coordinates);
+
+        fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lonLat[0]},${lonLat[1]}.json?access_token=pk.eyJ1Ijoid2FiZGVuMSIsImEiOiJjbG5xMWgzeTAwd2xrMmtzNmt4cmNiYWdxIn0.pDGGKgO9ZrFhEcfqcaIpgQ`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.features.length > 0) {
+                    var featureName = data.features[0].text;
+                    document.getElementById('area-name').textContent = featureName;
+                }
+            })
+            .catch(error => {
+                console.error('Geocoding error:', error);
+            });
+    });
+
+    map.on('click', function (event) {
+        var coordinates = event.coordinate;
+        var lonLat = ol.proj.toLonLat(coordinates);
+
+        fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lonLat[0]},${lonLat[1]}.json?access_token=pk.eyJ1Ijoid2FiZGVuMSIsImEiOiJjbG5xMWgzeTAwd2xrMmtzNmt4cmNiYWdxIn0.pDGGKgO9ZrFhEcfqcaIpgQ`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.features.length > 0) {
+                    var areaName = data.features[0].text;
+                    var conflictDetails = {
+                        place: areaName,
+                        conflictTypes: ["Communal Violence", "Ethnicity", "Political", "Resource", "Religious", "Tribal", "Border Dispute"],
+                        conflictIntensities: [0.7, 0.6, 0.5, 0.3, 0.4, 0.6, 0.8]
+                    };
+                    displayConflictPopup(areaName, conflictDetails, coordinates);
+                } else {
+                    alert('Place not found. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Geocoding error:', error);
+            });
+    });
+
+    function displayConflictPopup(areaName, conflictDetails, coordinates) {
+        document.getElementById('area-name').textContent = areaName;
+
+        var conflictHtml = "<strong>Conflict Types:</strong><br>";
+        conflictDetails.conflictTypes.forEach(function (type, index) {
+            conflictHtml += type + ": " + (Math.random() < conflictDetails.conflictIntensities[index] ? "High" : "Low") + "<br>";
+        });
+
+        document.getElementById('conflict-details').innerHTML = conflictHtml;
+
+        conflictPopup.setPosition(coordinates);
+        conflictPopup.getElement().style.display = 'block';
+    }
+
+    var zoomControl = new ol.control.Zoom({
+        zoomInTipLabel: 'Zoom In',
+        zoomOutTipLabel: 'Zoom Out'
+    });
+    map.addControl(zoomControl);
+    function displayConflictPopup(areaName, conflictDetails, coordinates) {
+    document.getElementById('area-name').textContent = areaName;
+
+    var conflictHtml = "<strong>High Conflict Types:</strong><br>";
+
+    for (var i = 0; i < conflictDetails.conflictTypes.length; i++) {
+        if (conflictDetails.conflictIntensities[i] > 0.5) {
+            conflictHtml += `<span style="color: red;">${conflictDetails.conflictTypes[i]}: High</span><br>`;
+        }
+    }
+
+    // Add a share button for WhatsApp
+    conflictHtml += `<br><button onclick="shareOnWhatsApp('${areaName}')">Share on WhatsApp</button>`;
+
+    // Create a canvas element for the chart
+    conflictHtml += '<canvas id="conflict-chart"></canvas>';
+
+    document.getElementById('conflict-details').innerHTML = conflictHtml;
+
+    conflictPopup.setPosition(coordinates);
+    conflictPopup.getElement().style.display = 'block';
+
+    // Generate and display a random chart
+    generateRandomChart();
+}
+
+// Function to generate and display a random chart using Chart.js
+function generateRandomChart(areaName) {
+    var ctx = document.getElementById('conflict-chart').getContext('2d');
+    var randomGraphType = getRandomGraphType(); // New function to get random graph type
+    var randomData = generateRandomData();
+
+    new Chart(ctx, {
+        type: randomGraphType,
+        data: {
+            labels: getRandomDates(), // New function to get random dates
+            datasets: [
+                {
+                    label: `Conflict Trends for ${areaName}`, // Use the provided areaName
+                    data: randomData,
+                    backgroundColor: randomGraphType === 'bar' ? 'rgba(255, 99, 132, 0.2)' : 'rgba(255, 99, 132, 0)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                },
+            },
+        },
+    });
+}
+
+// Function to get a random graph type (line, bar, or mixed)
+function getRandomGraphType() {
+    var types = ['line', 'bar', 'mixed']; // You can add more types if needed
+    var randomIndex = Math.floor(Math.random() * types.length);
+    return types[randomIndex];
+}
+
+// Function to generate random data for the chart
+function generateRandomData() {
+    var data = [];
+    for (var i = 0; i < 5; i++) {
+        data.push(Math.floor(Math.random() * 10)); // Generate random data points (you can adjust the range)
+    }
+    return data;
+}
+
+// Function to get random dates for the x-axis
+function getRandomDates() {
+    var currentDate = new Date();
+    var dates = [];
+    for (var i = 4; i >= 0; i--) {
+        var date = new Date(currentDate);
+        date.setDate(currentDate.getDate() - i);
+        dates.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    }
+    dates.push('Forecast');
+    return dates;
+}
+
+
+</script>
+</body>
+</html>
